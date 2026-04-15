@@ -1,49 +1,78 @@
-import traceback
-from tkinter import messagebox
+"""
+Section geometry and materials for ACSAHE.
+
+**Inputs (reading)**  
+Only the portable input ``dict`` is used. Obtain it with
+``build.input_handler.load_input_document`` (from ``.json`` or workbook).
+:class:`ACSAHEGeometricSolution` uses :class:`~build.input_handler.json_section_input_reader.JsonSectionInputReader`,
+which exposes the same cell-oriented sheet objects the legacy Excel layout used, so the solver code in this module is unchanged.
+
+**Visualization**  
+Plotly figures are built in ``plot.section_plotly`` and ``build.utils.plotly_engine``, not here.
+
+**Outputs (Excel, optional)**  
+:meth:`insertar_valores_2D` / :meth:`insertar_valores_3D` open a workbook to push results; pass
+``workbook_path`` when constructing the geometric solution if you need these.
+"""
+
+import logging
 
 import math
 import numpy as np
 
-import plotly.graph_objects as go
 from scipy.optimize import fsolve
 
 from materials.acero_pasivo import BarraAceroPasivo
 from materials.acero_pretensado import BarraAceroPretensado
 from build.utils.excel_manager import ExcelManager
+from build.input_handler.excel_section_input_reader import ExcelSectionInputReader
+from build.input_handler.json_section_input_reader import JsonSectionInputReader
 from geometry.section_geometry_engine import Node, Region, ArbitraryCrossSection, CircularRegion
 from materials.concrete import Concrete
 from materials.matrices import MatrizAceroPasivo, MatrizAceroActivo
-from build.utils.plotly_engine import ACSAHEPlotlyEngine
-
-
-def show_message(message, titulo="Mensaje"):
-    messagebox.showinfo(titulo, message)
+logger = logging.getLogger(__name__)
 
 
 class ACSAHEGeometricSolution:
+    """Mesh, rebars, and ``problema`` state from a portable input document (see module docstring)."""
+
     #  Both dimensions will be divided in N equal parts.
     rectangular_element_partition_dict = {"Muy Gruesa": 6, "Gruesa": 12, "Media": 30, "Fina": 50, "Muy Fina": 100}
     #  Discretization levels
     niveles_mallado_circular = {"Muy Gruesa": (3, 45), "Gruesa": (6, 30), "Media": (12, 10),
                                 "Fina": (25, 5), "Muy Fina": (50, 2)}
 
-    def __init__(self, file_path, read_only=True):
-        self.ingreso_datos_sheet, self.armaduras_pasivas_sheet, self.armaduras_activas_sheet, self.diagrama_interaccion_sheet, self.diagrama_interaccion_3D_sheet = None, None, None, None, None
+    def __init__(self, input_document: dict, *, workbook_path: str | None = None):
+        # Sheet facades and reader are assigned in build().
+        self.ingreso_datos_sheet = None
+        self.armaduras_pasivas_sheet = None
+        self.armaduras_activas_sheet = None
+        self.diagrama_interaccion_sheet = None
+        self.diagrama_interaccion_3D_sheet = None
         self.max_x_seccion, self.min_x_seccion, self.max_y_seccion, self.min_y_seccion = None, None, None, None
-        self.lista_ang_plano_de_carga = set()
-        self.file_name = file_path
-        self.read_only = read_only
+        self._input_reader: JsonSectionInputReader | ExcelSectionInputReader | None = None
+        self.workbook_path = workbook_path
+        self.input_document = input_document
+        self.excel_manager = None
 
-        # Attributes to build
         self.concrete_array, self.rebar_array, self.prestressed_rebar_array = None, None, None
 
         self.build()
 
+    def _bind_sheet_facade_from_reader(self) -> None:
+        """Mirror Excel sheet managers from the active input reader (JSON- or Excel-backed)."""
+        r = self._input_reader
+        self.ingreso_datos_sheet = r.ingreso_datos_sheet
+        self.armaduras_pasivas_sheet = r.armaduras_pasivas_sheet
+        self.armaduras_activas_sheet = r.armaduras_activas_sheet
+        self.diagrama_interaccion_sheet = r.diagrama_interaccion_sheet
+        self.diagrama_interaccion_3D_sheet = r.diagrama_interaccion_3D_sheet
 
-    def build(self):
-        self.excel_manager = ExcelManager(self.file_name, read_only=self.read_only, visible=False)
-        self._load_excel_sheets(self.excel_manager)
-        self.problema = self._get_result_params()
+    def build(self) -> None:
+        self._input_reader = JsonSectionInputReader(self.input_document)
+        self._bind_sheet_facade_from_reader()
+        self.problema = self._input_reader.get_result_params()
+        self.lista_ang_plano_de_carga = self.problema["lista_planos_de_carga"]
 
         self.concrete, self.acero_pasivo, self.acero_activo, self.estribo = None, None, None, None
         self._load_material_properties()
@@ -65,126 +94,19 @@ class ACSAHEGeometricSolution:
                 y) + math.tan(
                 math.radians(self.phiy)) * x
             self.assign_elastic_strains_to_prestressed_bars()
-            # self.excel_manager.close()
-            # if self.problema["tipo"] == "2D":
-                # self.construir_grafica_seccion()  #TODO redo
-        except Exception as e:
-            traceback.print_exc()
-            message = f"Error en la generación de la geometría:\n {e}"
-            show_message(message)
-            self.excel_manager.close()
-            raise e
-
-    def _load_excel_sheets(self, excel_manager):
-        self.ingreso_datos_sheet = excel_manager.get_sheet("Ingreso de Datos")
-        self.armaduras_pasivas_sheet = excel_manager.get_sheet("Armaduras Pasivas")
-        self.armaduras_activas_sheet = excel_manager.get_sheet("Armaduras Activas")
-        self.diagrama_interaccion_sheet = excel_manager.get_sheet("Resultados 2D")
-        self.diagrama_interaccion_3D_sheet = excel_manager.get_sheet("Resultados 3D")
-
-    def _append_uniaxial_angle(self, ang):
-        if ang is not None:
-            self.lista_ang_plano_de_carga.add(round(ang, 2))  # Two decimals in degrees.
-
-    def _get_result_params(self):
-        rows_range = self.ingreso_datos_sheet.get_n_rows_after_value("RESULTADOS",
-                                                                     number_of_rows_after_value=20, columns_range="A")
-
-        type_of_result = self.ingreso_datos_sheet.get_value_on_the_right("Tipo", rows_range, 2)
-        verifies_design_loads = self.ingreso_datos_sheet.get_value_on_the_right("Verificación de Estados", rows_range, 2)
-        pastes_results_in_wb = self.ingreso_datos_sheet.get_value_on_the_right("Pegar resultados en planilla", rows_range, 2)
-        phi_handling_str = self.ingreso_datos_sheet.get_value_on_the_right("ϕ\nFactor de Minoración de Resistencia", rows_range, 2)
-        phi_handling_cell = self.ingreso_datos_sheet.get_cell_address_on_the_right("ϕ\nFactor de Minoración de Resistencia", rows_range, 2)
-        self._get_uniaxial_angles_list(type_of_result, rows_range)
-        puntos_a_verificar = self._get_loading_combinations_points(type_of_result)
-        self.lista_ang_plano_de_carga = list(self.lista_ang_plano_de_carga)
-        return {
-            "tipo": type_of_result,
-            "verificacion": isinstance(verifies_design_loads, str) and verifies_design_loads == "Sí",
-            "lista_planos_de_carga": list(self.lista_ang_plano_de_carga),
-            "puntos_a_verificar": puntos_a_verificar,
-            "resultados_en_wb": isinstance(pastes_results_in_wb, str) and pastes_results_in_wb == "Sí",
-            "phi_variable": self._get_phi_criteria(phi_handling_str, phi_handling_cell)
-        }
-
-    @staticmethod
-    def _get_phi_criteria(tratado_de_phi, phi_handling_cell):
-        exception = Exception("Valor incorrecto en la celda 'Factor de Minoración de Resistencia ϕ'.\n"
-                              "Por favor, ingresar alguno de los valores disponibles en el menú desplegable.")
-        try:
-            if isinstance(tratado_de_phi, str):
-                tratado_de_phi = tratado_de_phi.replace(",", ".")
-                tratado_de_phi = tratado_de_phi.replace("\n", " ")
-            return float(tratado_de_phi)  # Not float
-        except ValueError:
-            if isinstance(tratado_de_phi, str):
-                if "SELECCIONAR CRITERIO" in tratado_de_phi.upper():
-                    cell_address_str = f"Debe seleccionar su valor en el menú desplegable de la celda: {phi_handling_cell[0]}{phi_handling_cell[1]}." if phi_handling_cell is not None else ""
-                    raise ValueError(f"ERROR: No ha seleccionado un criterio para el valor de tratado de ϕ. {cell_address_str}")
-                elif "CIRSOC 201-2024" in tratado_de_phi.upper():
-                    return "según CIRSOC 201-2024"
-                elif "CIRSOC 201" in tratado_de_phi.upper():
-                    return "según CIRSOC 201-2005"
-                else:
-                    raise exception
-            raise exception
-
-    def _get_uniaxial_angles_list(self, tipo, rows_range):
-        if tipo == "2D": # Uniaxial bending, result in 2D.
-            self._append_uniaxial_angle(self.ingreso_datos_sheet.get_value_on_the_right("Ángulo plano de carga λ =", rows_range, 2))
-        else:  # Biaxial bending, result in 3D.
-            cantidad_planos_de_carga = int(
-                self.ingreso_datos_sheet.get_value_on_the_right("Cantidad de Planos de Carga", rows_range, 2))
-            planos_de_carga_fila = self.ingreso_datos_sheet.get_n_rows_after_value(
-                "Cantidad de Planos de Carga",
-                cantidad_planos_de_carga + 2,
-            )
-            for ang in [self.ingreso_datos_sheet.get_value("C", row_n) for row_n in planos_de_carga_fila[2:]]:
-                self._append_uniaxial_angle(ang)
-
-    def _get_loading_combinations_points(self, type_of_problem):
-        rows_range = tuple(range(46, self.ingreso_datos_sheet.default_rows_range_value[-1]))
-        load_combinations_count = self.ingreso_datos_sheet.get_value_on_the_right(
-            "Cantidad de Estados", n_column=2, rows_range=rows_range)
-        if not load_combinations_count:
-            return []
-        load_combinations_count = int(load_combinations_count)
-        load_combination_row_list = self.ingreso_datos_sheet.get_n_rows_after_value(
-            "Cantidad de Estados",
-            load_combinations_count + 3,
-        )
-        load_combinations_list = []
-        for combination_row in load_combination_row_list[3:]:
-            if type_of_problem == "2D":
-                load_combination = {
-                    "nombre": self.ingreso_datos_sheet.get_value("A", combination_row),
-                    "P": self.ingreso_datos_sheet.get_value("C", combination_row),
-                    "M": self.ingreso_datos_sheet.get_value("E", combination_row),
-                }
-            else:
-                plano_de_carga = self.ingreso_datos_sheet.get_value("H", combination_row)
-                load_combination = {
-                    "nombre": self.ingreso_datos_sheet.get_value("A", combination_row),
-                    "P": self.ingreso_datos_sheet.get_value("C", combination_row),
-                    "Mx": self.ingreso_datos_sheet.get_value("E", combination_row),
-                    "My": self.ingreso_datos_sheet.get_value("G", combination_row),
-                    "plano_de_carga": plano_de_carga if plano_de_carga is not None else 0  # se fuerza 0 para estado de solo esfuerzo normal, en el cual en rigor corresponde considerar infinitos planos de carga.
-                }
-                self._append_uniaxial_angle(load_combination["plano_de_carga"])
-            load_combinations_list.append(load_combination)
-        if type_of_problem == "3D":
-            load_combinations_list = sorted(load_combinations_list, key=lambda x: x["plano_de_carga"])
-        return load_combinations_list
+        except Exception:
+            logger.exception("Error en la generación de la geometría")
+            raise
 
     def _load_material_properties(self):
 
         self.concrete = Concrete(tipo=self.ingreso_datos_sheet.get_value("C", "4"))
         self.tipo_estribo = self.ingreso_datos_sheet.get_value("C", "10")
 
-        def_de_rotura_a_pasivo = self.obtener_def_de_rotura_a_pasivo()
+        def_de_rotura_a_pasivo = self._input_reader.obtener_def_de_rotura_a_pasivo()
         self.set_rebar_properties(def_de_rotura_a_pasivo)
 
-        def_de_pretensado_inicial = self._get_initial_prestressed_strain()
+        def_de_pretensado_inicial = self._input_reader.get_initial_prestressed_strain()
         self.def_de_pretensado_inicial = def_de_pretensado_inicial
         self.setear_propiedades_acero_activo(def_de_pretensado_inicial)
 
@@ -209,16 +131,6 @@ class ACSAHEGeometricSolution:
         def_max_acero_pasivo = BarraAceroPasivo.eu
         def_max_acero_activo = BarraAceroPretensado.epu
         return min(def_max_acero_pasivo, def_max_acero_activo)
-
-    def obtener_def_de_rotura_a_pasivo(self):
-        problem_type = self.ingreso_datos_sheet.get_value("C", "6")
-        possible_reinforcement_options = {"ADN 420": "B", "ADN 500": "C", "AL 220": "D", "Provisto por Usuario": "E"}
-        value = self.armaduras_pasivas_sheet.get_value(possible_reinforcement_options.get(problem_type, "B"), 5)
-        return value
-
-    def _get_initial_prestressed_strain(self):
-        value = self.ingreso_datos_sheet.get_value("E", 8)
-        return value / 1000
 
     def _get_mesh_characteristics(self):
         return {
@@ -281,24 +193,15 @@ class ACSAHEGeometricSolution:
                                                                           elemento_pretensado.yg)
 
     def _get_rebar_array(self):
-        rows_list = self.ingreso_datos_sheet.get_rows_range_between_values(
-            ("ARMADURAS PASIVAS (H°- Armado)", "ARMADURAS ACTIVAS (H°- Pretensado)"),
-            columns_range=["A"])
         result_array = MatrizAceroPasivo()
-        for row_number in rows_list[5:-1]:
-            x, y, d, i = self._get_rebar_excel_values(row_number)
+        for row_number in self._input_reader.get_passive_rebar_row_numbers():
+            x, y, d, i = self._input_reader.get_rebar_excel_values(row_number)
             if d == 0:
                 continue
             xg = round(x - self.XG, 3)
             yg = round(y - self.YG, 3)
             result_array.append(BarraAceroPasivo(xg, yg, d, i))
         return result_array
-
-    def _get_rebar_excel_values(self, row_number):
-        return (self.ingreso_datos_sheet.get_value("C", row_number),
-                self.ingreso_datos_sheet.get_value("E", row_number),
-                self.ingreso_datos_sheet.get_value("G", row_number),
-                self.ingreso_datos_sheet.get_value("A", row_number))
 
     def set_rebar_properties(self, def_de_rotura_a_pasivo):
         try:
@@ -330,12 +233,9 @@ class ACSAHEGeometricSolution:
             raise Exception("No se pudieron setear las propiedades del acero pasivo, revise configuración")
 
     def _get_prestressed_bars_array(self):
-        lista_filas = self.ingreso_datos_sheet.get_rows_range_between_values(
-            ("ARMADURAS ACTIVAS (H°- Pretensado)", "DISCRETIZACIÓN DE LA SECCIÓN"),
-            columns_range=["A"])
         resultado = MatrizAceroActivo()
-        for fila in lista_filas[5:-1]:
-            x, y, area, i = self._get_rebar_excel_values(fila)
+        for fila in self._input_reader.get_active_rebar_row_numbers():
+            x, y, area, i = self._input_reader.get_rebar_excel_values(fila)
             if area == 0:
                 continue
             xg = round(x - self.XG, 3)
@@ -383,26 +283,8 @@ class ACSAHEGeometricSolution:
         except Exception as e:
             raise Exception("No se pudieron establecer las propiedades del acero activo, revise configuración")
 
-    def _get_index(self, region):
-        value = self.ingreso_datos_sheet.get_value("A", region[0])
-        return value.split()[-1]
-
-    def _get_sign(self, region):
-        value = self.ingreso_datos_sheet.get_value("C", region[0])
-        return +1 if "Pos" in value else -1
-
-    def _get_section_type(self, region):
-        value = self.ingreso_datos_sheet.get_value("E", region[0])
-        return value
-
-    def _get_number_of_nodes(self, region):
-        return self.ingreso_datos_sheet.get_value("G", region[0])
-
     def get_meshed_concrete_section(self):
-        filas_hormigon = self.ingreso_datos_sheet.get_rows_range_between_values(
-            ("GEOMETRÍA DE LA SECCIÓN DE HORMIGÓN", "ARMADURAS PASIVAS (H°- Armado)"),
-            columns_range=["A"])
-        concrete_shapes_list = self.ingreso_datos_sheet.subdivide_range_in_contain_word("A", filas_hormigon, "Contorno")
+        concrete_shapes_list = self._input_reader.iter_concrete_regions()
         concrete_polygons = {}
         node_coordinates_list = []
         max_x, min_x = [], []
@@ -410,15 +292,11 @@ class ACSAHEGeometricSolution:
         delta_x = []
         delta_y = []
         for i, filas_region in enumerate(concrete_shapes_list):
-            sign = self._get_sign(filas_region)
-            shape_type = self._get_section_type(filas_region)
-            indice = self._get_index(filas_region)
+            sign = self._input_reader.get_contour_matrix_sign(filas_region)
+            shape_type = self._input_reader.get_contour_shape_type(filas_region)
+            indice = self._input_reader.get_contour_index(filas_region)
             if shape_type == "Poligonal":
-                cantidad_de_nodos = int(self._get_number_of_nodes(filas_region))
-                for fila_n in self.ingreso_datos_sheet.get_n_rows_after_value("Nodo Nº", cantidad_de_nodos + 1,
-                                                                              rows_range=filas_region)[1:]:
-                    x = self.ingreso_datos_sheet.get_value("C", fila_n)
-                    y = self.ingreso_datos_sheet.get_value("E", fila_n)
+                for x, y in self._input_reader.parse_polygon_contour(filas_region):
                     node_coordinates_list.append(Node(round(x, 3), round(y, 3)))  # Medidas en centímetros
                 concrete_shape = Region(node_coordinates_list, sign, indice, sort_nodes=True)
                 if sign > 0:  # Solo se utilizan los regions positivos para definir la discretización
@@ -431,10 +309,11 @@ class ACSAHEGeometricSolution:
                 concrete_polygons[str(i + 1)] = concrete_shape
                 node_coordinates_list = []
             elif shape_type == "Circular":
-                x = self.ingreso_datos_sheet.get_value_on_the_right("Nodo Centro", filas_region, 2)
-                y = self.ingreso_datos_sheet.get_value_on_the_right("Nodo Centro", filas_region, 4)
-                r_int = self.ingreso_datos_sheet.get_value_on_the_right("Radio Interno [cm]", filas_region, 2)
-                r_ext = self.ingreso_datos_sheet.get_value_on_the_right("Radio Externo [cm]", filas_region, 2)
+                circular_data = self._input_reader.parse_circular_contour(filas_region)
+                x = circular_data["center_x"]
+                y = circular_data["center_y"]
+                r_int = circular_data["r_int"]
+                r_ext = circular_data["r_ext"]
                 if sign > 0:
                     max_x.append(x + r_ext)
                     min_x.append(x - r_ext)
@@ -456,20 +335,19 @@ class ACSAHEGeometricSolution:
     def get_discretizacion(self, delta_x, delta_y, regions):
         hay_region_circular = any(isinstance(v, CircularRegion) for k, v in regions.items())
         hay_region_rectangular = any(not isinstance(x, CircularRegion) for x in regions)
-        rows_range = self.ingreso_datos_sheet.get_n_rows_after_value("DISCRETIZACIÓN DE LA SECCIÓN",
-                                                                     number_of_rows_after_value=20, columns_range="A")
-        nivel_discretizacion = self.ingreso_datos_sheet.get_value_on_the_right("Nivel de Discretización", rows_range, 2)
+        rows_range = self._input_reader.get_discretization_block_rows()
+        nivel_discretizacion = self._input_reader.read_discretization_level(rows_range)
+        if nivel_discretizacion == "advanced_manual":
+            nivel_discretizacion = "Avanzada (Ingreso Manual)"
         self.nivel_disc = nivel_discretizacion
         if nivel_discretizacion == "Avanzada (Ingreso Manual)":
-            dx = self.ingreso_datos_sheet.get_value_on_the_right("ΔX [cm] =", rows_range, 2)
-            dy = self.ingreso_datos_sheet.get_value_on_the_right("ΔY [cm] =", rows_range, 2)
-            d_ang = self.ingreso_datos_sheet.get_value_on_the_right("Δθ [°] =", rows_range, 2)
+            dx, dy, d_ang = self._input_reader.read_manual_mesh_inputs(rows_range)
             return (dx if hay_region_rectangular else None,
                     dy if hay_region_rectangular else None,
                     min(dx, dy) if hay_region_circular else None,
                     d_ang if hay_region_circular else None)
-        factor_rectangular = 1 / self.rectangular_element_partition_dict.get(nivel_discretizacion)
-        factor_circular = self.niveles_mallado_circular.get(nivel_discretizacion)
+        factor_rectangular = 1 / self._input_reader.rectangular_element_partition_dict.get(nivel_discretizacion)
+        factor_circular = self._input_reader.niveles_mallado_circular.get(nivel_discretizacion)
 
         return (factor_rectangular * max(delta_x) if hay_region_rectangular else None,
                 factor_rectangular * max(delta_y) if hay_region_rectangular else None,
@@ -515,74 +393,17 @@ class ACSAHEGeometricSolution:
         ec_plano = lambda x, y: ec + math.tan(math.radians(phix)) * y + math.tan(math.radians(phiy)) * x
         self.meshed_section.mostrar_regions_3d(ecuacion_plano_a_desplazar=ec_plano)
 
-    def construir_grafica_seccion_plotly(self, fig=None):
-        """Muestra la sección obtenida luego del proceso de discretización."""
-
-        x_range = self.meshed_section.x_max - self.meshed_section.x_min
-        y_range = self.meshed_section.y_max - self.meshed_section.y_min
-        common_range = max(x_range, y_range) * 1.1
-
-        # Center the common range around the midpoints of the original ranges
-        x_mid = (self.meshed_section.x_max + self.meshed_section.x_min) / 2
-        y_mid = (self.meshed_section.y_max + self.meshed_section.y_min) / 2
-
-        if not fig:
-            fig = go.Figure(layout_template="plotly_white")
-        fig.update_yaxes(
-            scaleanchor="x",
-            scaleratio=1,
-        )
-
-        plotly_util = ACSAHEPlotlyEngine(fig)
-        plotly_util.plot_reinforcement_bars_as_circles(self.rebar_array, self.prestressed_rebar_array)
-
-        self.meshed_section.plotly(fig, self.lista_ang_plano_de_carga)
-
-        fig.update_layout(
-            xaxis=dict(
-                title='<span style="font-size: 20px;">X</span><span style="font-size: 14px;"> baricéntrica</span><span style="font-size: 20px;"> [cm]</span>',
-                title_font=dict(family='Times New Roman'),
-                showticklabels=True, showgrid=True,
-                zeroline=True,
-                range=[x_mid - common_range / 2, x_mid + common_range / 2]
-            ),
-            yaxis=dict(
-                title='<span style="font-size: 20px;">Y</span><span style="font-size: 14px;"> baricéntrica</span><span style="font-size: 20px;"> [cm]</span>',
-                title_font=dict(family='Times New Roman', size=12),
-                zeroline=True,
-                showticklabels=True, showgrid=True,
-                range=[y_mid - common_range / 2, y_mid + common_range / 2]
-            )
-        )
-        return fig
-
-    @staticmethod
-    def get_3d_coordinates(list_of_results_2d):
-        X, Y, Z = [], [], []
-        color_list = []
-        phi_list = []
-        plano_def = []
-        is_capped_list = []
-        if not list_of_results_2d:
-            return None
-        for result in list_of_results_2d:
-            x = -result["Mx"] / 100
-            y = -result["My"] / 100
-            z = -result["sumF"]  # Negative so compression points lye on quadrants I and II
-            X.append(x)
-            Y.append(y)
-            Z.append(z)
-            phi_list.append(result["phi"])
-            plano_def.append(result["plano_de_deformacion"])
-            color = result["color"]
-            color_list.append(f"rgb({color[0]},{color[1]},{color[2]})")
-            is_capped_list.append(result["is_capped"])
-
-        return (X, Y, Z, phi_list), color_list, is_capped_list
-
     def insertar_valores_2D(self, data_subset, lista_puntos_a_verificar):
-        self.excel_manager = ExcelManager(self.file_name, read_only=False, visible=True)
-        self._load_excel_sheets(self.excel_manager)
+        """
+        Write 2D interaction results into the workbook. Requires ``workbook_path`` at construction.
+
+        Temporarily replaces ``_input_reader`` with an Excel-backed reader for sheet I/O only.
+        """
+        if not self.workbook_path:
+            raise ValueError("workbook_path was not set; cannot write results to Excel.")
+        self.excel_manager = ExcelManager(self.workbook_path, read_only=False, visible=True)
+        self._input_reader = ExcelSectionInputReader(self.excel_manager)
+        self._bind_sheet_facade_from_reader()
         diagrama_de_interaccion_sheet = self.diagrama_interaccion_sheet
         for k, v in data_subset.items():
             lista_x_total = [(1 if x > 0 else -1 if x!=0 else 1 if y>=0 else -1) * math.sqrt(x ** 2 + y ** 2) for x, y in
@@ -601,7 +422,10 @@ class ACSAHEGeometricSolution:
             self.excel_manager.close()
 
     def insertar_valores_3D(self, data_subset):
-        excel_manager = ExcelManager(self.file_name, read_only=False)
+        """Write 3D interaction block into the ``Resultados 3D`` sheet."""
+        if not self.workbook_path:
+            raise ValueError("workbook_path was not set; cannot write results to Excel.")
+        excel_manager = ExcelManager(self.workbook_path, read_only=False)
         diagrama_de_interaccion_sheet = excel_manager.get_sheet("Resultados 3D")
 
         i = 0  # contador
@@ -623,4 +447,4 @@ class ACSAHEGeometricSolution:
                 list_values,
                 start_row=4)
             i = i + 1
-        self.excel_manager.close()
+        excel_manager.close(save=False)

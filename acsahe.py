@@ -10,8 +10,10 @@ from tkinter import messagebox
 
 from interaction_diagram.interaction_diagram_builder import UniaxialInteractionDiagram
 from geometry.section_analysis import ACSAHEGeometricSolution
+from plot.interaction_coords import interaction_diagram_points_to_plot_axes
 from build.utils.plotly_engine import ACSAHEPlotlyEngine
 from report.report_engine import ACSAHEReportEngine
+from build.input_handler import load_input_document
 
 def show_message(message, titulo="Mensaje"):
     messagebox.showinfo(titulo, message)
@@ -70,7 +72,11 @@ class ACSAHE:
     def start_process(self):
         try:
             self.update_ui("Construyendo Geometría...", 5)
-            self.geometric_solution = ACSAHEGeometricSolution(file_path=self.path_to_input_file)
+            input_document = load_input_document(self.path_to_input_file, read_only=True)
+            self.geometric_solution = ACSAHEGeometricSolution(
+                input_document,
+                workbook_path=self.path_to_input_file,
+            )
             geometric_solution = self.geometric_solution
 
             loading_path_angles = sorted(geometric_solution.lista_ang_plano_de_carga)
@@ -88,7 +94,7 @@ class ACSAHE:
 
                     partial_2d_solution = UniaxialInteractionDiagram(angle if angle != -1 else 0.00, geometric_solution)
 
-                    coordinates_3d, colors_partial, is_capped_partial = geometric_solution.get_3d_coordinates(
+                    coordinates_3d, colors_partial, is_capped_partial = interaction_diagram_points_to_plot_axes(
                         partial_2d_solution.interaction_diagram_points_list)
                     x_partial, y_partial, z_partial, phi_partial = coordinates_3d
                     is_phi_constant = isinstance(geometric_solution.problema["phi_variable"], float)
@@ -154,11 +160,12 @@ class ACSAHE:
 
                     self.update_ui(f"ACSAHE ha finalizado!", progress_bar_value=100)
                     QApplication.processEvents()
-            self.geometric_solution.excel_manager.close()
+            if getattr(self.geometric_solution, "excel_manager", None) is not None:
+                self.geometric_solution.excel_manager.close()
         except Exception as e:
             self.update_ui(f"ERROR: {e}!", progress_bar_value=100)
             traceback.print_exc()
-            if hasattr(self, "geometric_solution"):
+            if hasattr(self, "geometric_solution") and getattr(self.geometric_solution, "excel_manager", None) is not None:
                 self.geometric_solution.excel_manager.close()
             raise e
 

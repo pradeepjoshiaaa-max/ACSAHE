@@ -10,6 +10,7 @@ from typing import Any, Dict
 from tkinter import messagebox
 
 from plot.html.html_engine import ACSAHEHtmlEngine
+from plot.section_plotly import discretized_section_figure
 from build.utils.excel_manager import ExcelManager, create_workbook_from_template
 
 
@@ -550,7 +551,12 @@ class ACSAHEPlotlyEngine(object):
 
     def _build_context(self, fig, gs, assets: Dict[str, str], project_path: str, file_name: str) -> Dict[str, str]:
         html_engine = ACSAHEHtmlEngine(project_path)
-        self.section_fig = gs.construir_grafica_seccion_plotly()
+        self.section_fig = discretized_section_figure(
+            gs.meshed_section,
+            gs.rebar_array,
+            gs.prestressed_rebar_array,
+            gs.lista_ang_plano_de_carga,
+        )
         return {
             "icon_encoded": assets["encoded_icon"],
             "archivo": f"Archivo: {file_name}",

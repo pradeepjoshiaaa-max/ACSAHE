@@ -32,6 +32,9 @@ import plotly.graph_objects as go
 
 from interaction_diagram.interaction_diagram_builder import UniaxialInteractionDiagram
 from geometry.section_analysis import ACSAHEGeometricSolution
+from build.input_handler import load_input_document
+from plot.interaction_coords import interaction_diagram_points_to_plot_axes
+from plot.section_plotly import discretized_section_figure
 from build.utils.plotly_engine import ACSAHEPlotlyEngine
 from build.utils.excel_manager import insert_uniaxial_result_values, insert_biaxial_result_values
 
@@ -176,9 +179,10 @@ class OldACSAHEGUIWidget(QWidget):
         self.update_ui("Construyendo Geometría...", 5)
         QApplication.processEvents()
 
+        workbook_path = f"{self.path_to_file + '/' if self.path_to_file else ''}{self.file_name}"
+        input_document = load_input_document(workbook_path, read_only=True)
         self.geometric_solution = ACSAHEGeometricSolution(
-            file_path=f"{self.path_to_file + '/' if self.path_to_file else ''}{self.file_name}",
-            read_only=False)
+            input_document, workbook_path=workbook_path)
         geometric_solution = self.geometric_solution
 
         loading_path_angles = sorted(geometric_solution.lista_ang_plano_de_carga)
@@ -199,7 +203,7 @@ class OldACSAHEGUIWidget(QWidget):
 
                     partial_2d_solution = UniaxialInteractionDiagram(angle if angle != -1 else 0.00, geometric_solution)
 
-                    coordinates_3d, colors_partial, is_capped_partial = geometric_solution.get_3d_coordinates(
+                    coordinates_3d, colors_partial, is_capped_partial = interaction_diagram_points_to_plot_axes(
                         partial_2d_solution.interaction_diagram_points_list)
                     x_partial, y_partial, z_partial, phi_partial = coordinates_3d
                     is_phi_constant = isinstance(geometric_solution.problema["phi_variable"], float)
@@ -269,7 +273,12 @@ class OldACSAHEGUIWidget(QWidget):
     def construir_resultado_html(self, solucion_geometrica, lista_x_total, lista_y_total, lista_z_total,
                                  lista_text_total, lista_color_total, data_subsets):
 
-        fig_seccion = solucion_geometrica.construir_grafica_seccion_plotly()
+        fig_seccion = discretized_section_figure(
+            solucion_geometrica.meshed_section,
+            solucion_geometrica.rebar_array,
+            solucion_geometrica.prestressed_rebar_array,
+            solucion_geometrica.lista_ang_plano_de_carga,
+        )
 
         if solucion_geometrica.problema["tipo"] == "2D":
             fig = self.print_2d(solucion_geometrica, lista_x_total, lista_y_total, lista_z_total, lista_text_total,

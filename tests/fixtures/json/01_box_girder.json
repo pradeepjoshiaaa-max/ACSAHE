@@ -1,0 +1,842 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "format": "excel",
+    "name": "input"
+  },
+  "building_code": "ACI 318-19",
+  "units": {
+    "force": "kN",
+    "moment": "kNm",
+    "length": "cm",
+    "bar_diameter": "mm",
+    "active_bar_area": "cm2",
+    "angle": "deg"
+  },
+  "materials": {
+    "concrete": {
+      "type": "concrete",
+      "model": "ACI",
+      "name": "H-25",
+      "properties": {
+        "class": "H",
+        "fc": 25.0,
+        "Ec": 2350.0,
+        "beta_1": 0.85
+      }
+    },
+    "rebar_steel": {
+      "type": "steel",
+      "model": "elastic_perfectly_plastic",
+      "name": "ADN-420",
+      "properties": {
+        "catalog": "ADN 420",
+        "E": 20000.0,
+        "eu": 0.12,
+        "fy": 420.0
+      }
+    },
+    "p_rebar": {
+      "type": "steel",
+      "model": "menegotto_pinto",
+      "name": "Cordones-C1900",
+      "properties": {
+        "effective_strain": 5.21,
+        "recommended_effective_strain": 5.21,
+        "Eps": 20000.0,
+        "fpy": 166.5,
+        "fpu": 186.0,
+        "epu": 0.069,
+        "N": 7.344,
+        "K": 1.0618,
+        "Q": 0.01174
+      }
+    },
+    "transverse_reinforcement": {
+      "type": "steel",
+      "model": "elastic_perfectly_plastic",
+      "name": "Estribos",
+      "properties": {
+        "enabled": true,
+        "label": "Estribos"
+      }
+    }
+  },
+  "section_geometry": {
+    "contours": [
+      {
+        "id": 1,
+        "is_hole": false,
+        "type": "polygon",
+        "nodes": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 240.0,
+            "y": 0.0
+          },
+          {
+            "x": 240.0,
+            "y": 120.0
+          },
+          {
+            "x": 0.0,
+            "y": 120.0
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "is_hole": true,
+        "type": "polygon",
+        "nodes": [
+          {
+            "x": 0.0,
+            "y": 0.0
+          },
+          {
+            "x": 69.7,
+            "y": 0.0
+          },
+          {
+            "x": 28.9,
+            "y": 105.0
+          },
+          {
+            "x": 0.0,
+            "y": 105.0
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "is_hole": true,
+        "type": "polygon",
+        "nodes": [
+          {
+            "x": 170.3,
+            "y": 0.0
+          },
+          {
+            "x": 240.0,
+            "y": 0.0
+          },
+          {
+            "x": 240.0,
+            "y": 105.0
+          },
+          {
+            "x": 211.0,
+            "y": 105.0
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "is_hole": true,
+        "type": "polygon",
+        "nodes": [
+          {
+            "x": 45.0,
+            "y": 105.0
+          },
+          {
+            "x": 80.0,
+            "y": 15.0
+          },
+          {
+            "x": 160.0,
+            "y": 15.0
+          },
+          {
+            "x": 195.0,
+            "y": 105.0
+          }
+        ]
+      }
+    ]
+  },
+  "reinforcement": {
+    "rebar": [
+      {
+        "id": 1,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 2,
+        "material_tag": "rebar_steel",
+        "x": 132.20000000000002,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 3,
+        "material_tag": "rebar_steel",
+        "x": 144.2,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 4,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 5,
+        "material_tag": "rebar_steel",
+        "x": 132.20000000000002,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 6,
+        "material_tag": "rebar_steel",
+        "x": 144.2,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 7,
+        "material_tag": "rebar_steel",
+        "x": 156.20000000000002,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 8,
+        "material_tag": "rebar_steel",
+        "x": 162.1,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 9,
+        "material_tag": "rebar_steel",
+        "x": 168.2,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 10,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 11,
+        "material_tag": "rebar_steel",
+        "x": 107.80000000000001,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 12,
+        "material_tag": "rebar_steel",
+        "x": 95.8,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 13,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 14,
+        "material_tag": "rebar_steel",
+        "x": 107.80000000000001,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 15,
+        "material_tag": "rebar_steel",
+        "x": 95.8,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 16,
+        "material_tag": "rebar_steel",
+        "x": 83.8,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 17,
+        "material_tag": "rebar_steel",
+        "x": 77.9,
+        "y": 12.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 18,
+        "material_tag": "rebar_steel",
+        "x": 71.8,
+        "y": 3.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 19,
+        "material_tag": "rebar_steel",
+        "x": 40.6,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 20,
+        "material_tag": "rebar_steel",
+        "x": 111.00000000000001,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 21,
+        "material_tag": "rebar_steel",
+        "x": 99.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 22,
+        "material_tag": "rebar_steel",
+        "x": 87.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 23,
+        "material_tag": "rebar_steel",
+        "x": 75.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 24,
+        "material_tag": "rebar_steel",
+        "x": 63.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 25,
+        "material_tag": "rebar_steel",
+        "x": 51.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 26,
+        "material_tag": "rebar_steel",
+        "x": 31.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 27,
+        "material_tag": "rebar_steel",
+        "x": 15.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 28,
+        "material_tag": "rebar_steel",
+        "x": 3.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 29,
+        "material_tag": "rebar_steel",
+        "x": 111.00000000000001,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 30,
+        "material_tag": "rebar_steel",
+        "x": 99.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 31,
+        "material_tag": "rebar_steel",
+        "x": 87.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 32,
+        "material_tag": "rebar_steel",
+        "x": 75.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 33,
+        "material_tag": "rebar_steel",
+        "x": 63.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 34,
+        "material_tag": "rebar_steel",
+        "x": 51.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 35,
+        "material_tag": "rebar_steel",
+        "x": 39.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 36,
+        "material_tag": "rebar_steel",
+        "x": 27.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 37,
+        "material_tag": "rebar_steel",
+        "x": 15.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 38,
+        "material_tag": "rebar_steel",
+        "x": 3.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 39,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 40,
+        "material_tag": "rebar_steel",
+        "x": 199.4,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 41,
+        "material_tag": "rebar_steel",
+        "x": 129.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 42,
+        "material_tag": "rebar_steel",
+        "x": 141.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 43,
+        "material_tag": "rebar_steel",
+        "x": 153.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 44,
+        "material_tag": "rebar_steel",
+        "x": 165.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 45,
+        "material_tag": "rebar_steel",
+        "x": 177.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 46,
+        "material_tag": "rebar_steel",
+        "x": 189.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 47,
+        "material_tag": "rebar_steel",
+        "x": 209.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 48,
+        "material_tag": "rebar_steel",
+        "x": 225.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 49,
+        "material_tag": "rebar_steel",
+        "x": 237.0,
+        "y": 108.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 50,
+        "material_tag": "rebar_steel",
+        "x": 120.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 51,
+        "material_tag": "rebar_steel",
+        "x": 129.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 52,
+        "material_tag": "rebar_steel",
+        "x": 141.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 53,
+        "material_tag": "rebar_steel",
+        "x": 153.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 54,
+        "material_tag": "rebar_steel",
+        "x": 165.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 55,
+        "material_tag": "rebar_steel",
+        "x": 177.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 56,
+        "material_tag": "rebar_steel",
+        "x": 189.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 57,
+        "material_tag": "rebar_steel",
+        "x": 200.99999999999997,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 58,
+        "material_tag": "rebar_steel",
+        "x": 213.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 59,
+        "material_tag": "rebar_steel",
+        "x": 225.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 60,
+        "material_tag": "rebar_steel",
+        "x": 237.0,
+        "y": 117.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 61,
+        "material_tag": "rebar_steel",
+        "x": 43.9,
+        "y": 99.5,
+        "diameter": 12.0
+      },
+      {
+        "id": 62,
+        "material_tag": "rebar_steel",
+        "x": 47.599999999999994,
+        "y": 90.10000000000001,
+        "diameter": 12.0
+      },
+      {
+        "id": 63,
+        "material_tag": "rebar_steel",
+        "x": 53.0,
+        "y": 76.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 64,
+        "material_tag": "rebar_steel",
+        "x": 58.4,
+        "y": 62.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 65,
+        "material_tag": "rebar_steel",
+        "x": 63.9,
+        "y": 48.199999999999996,
+        "diameter": 12.0
+      },
+      {
+        "id": 66,
+        "material_tag": "rebar_steel",
+        "x": 69.3,
+        "y": 34.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 67,
+        "material_tag": "rebar_steel",
+        "x": 74.7,
+        "y": 20.200000000000003,
+        "diameter": 12.0
+      },
+      {
+        "id": 68,
+        "material_tag": "rebar_steel",
+        "x": 35.5,
+        "y": 96.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 69,
+        "material_tag": "rebar_steel",
+        "x": 39.2,
+        "y": 86.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 70,
+        "material_tag": "rebar_steel",
+        "x": 44.6,
+        "y": 72.89999999999999,
+        "diameter": 12.0
+      },
+      {
+        "id": 71,
+        "material_tag": "rebar_steel",
+        "x": 50.0,
+        "y": 58.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 72,
+        "material_tag": "rebar_steel",
+        "x": 55.50000000000001,
+        "y": 44.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 73,
+        "material_tag": "rebar_steel",
+        "x": 60.9,
+        "y": 31.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 74,
+        "material_tag": "rebar_steel",
+        "x": 66.4,
+        "y": 17.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 75,
+        "material_tag": "rebar_steel",
+        "x": 196.1,
+        "y": 99.5,
+        "diameter": 12.0
+      },
+      {
+        "id": 76,
+        "material_tag": "rebar_steel",
+        "x": 192.4,
+        "y": 90.10000000000001,
+        "diameter": 12.0
+      },
+      {
+        "id": 77,
+        "material_tag": "rebar_steel",
+        "x": 187.0,
+        "y": 76.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 78,
+        "material_tag": "rebar_steel",
+        "x": 181.6,
+        "y": 62.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 79,
+        "material_tag": "rebar_steel",
+        "x": 176.1,
+        "y": 48.199999999999996,
+        "diameter": 12.0
+      },
+      {
+        "id": 80,
+        "material_tag": "rebar_steel",
+        "x": 170.70000000000002,
+        "y": 34.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 81,
+        "material_tag": "rebar_steel",
+        "x": 165.3,
+        "y": 20.200000000000003,
+        "diameter": 12.0
+      },
+      {
+        "id": 82,
+        "material_tag": "rebar_steel",
+        "x": 204.5,
+        "y": 96.2,
+        "diameter": 12.0
+      },
+      {
+        "id": 83,
+        "material_tag": "rebar_steel",
+        "x": 200.8,
+        "y": 86.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 84,
+        "material_tag": "rebar_steel",
+        "x": 195.4,
+        "y": 72.89999999999999,
+        "diameter": 12.0
+      },
+      {
+        "id": 85,
+        "material_tag": "rebar_steel",
+        "x": 190.0,
+        "y": 58.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 86,
+        "material_tag": "rebar_steel",
+        "x": 184.5,
+        "y": 44.9,
+        "diameter": 12.0
+      },
+      {
+        "id": 87,
+        "material_tag": "rebar_steel",
+        "x": 179.1,
+        "y": 31.0,
+        "diameter": 12.0
+      },
+      {
+        "id": 88,
+        "material_tag": "rebar_steel",
+        "x": 173.6,
+        "y": 17.0,
+        "diameter": 12.0
+      }
+    ],
+    "p_rebar": [
+      {
+        "id": 1,
+        "material_tag": "p_rebar",
+        "x": 120.0,
+        "y": 7.5,
+        "area": 5.0
+      },
+      {
+        "id": 2,
+        "material_tag": "p_rebar",
+        "x": 132.20000000000002,
+        "y": 7.5,
+        "area": 5.0
+      },
+      {
+        "id": 3,
+        "material_tag": "p_rebar",
+        "x": 108.0,
+        "y": 7.5,
+        "area": 5.0
+      }
+    ]
+  },
+  "analysis": {
+    "discretization_level": "fine",
+    "problem_type": "3D",
+    "verification_enabled": true,
+    "bending_plane_angles": [
+      0.0,
+      15.0,
+      30.0,
+      45.0,
+      60.0,
+      75.0,
+      90.0,
+      105.0,
+      120.0,
+      135.0,
+      150.0,
+      165.0
+    ],
+    "is_phi_variable": true,
+    "phi": null,
+    "manual_mesh": {
+      "dx": 2.0,
+      "dy": 2.0,
+      "d_ang": 2.0
+    },
+    "load_combinations": [
+      {
+        "id": "(ej: 1.2D+1.6L)",
+        "Pu": 0.0,
+        "Mu_x": 0.0,
+        "Mu_y": 0.0,
+        "loading_plane_angle": 0.0
+      }
+    ]
+  },
+  "output": {
+    "paste_results_to_wb": false
+  }
+}

@@ -427,13 +427,17 @@ class ExcelManager:
             temp_file = temp_dir / clean_name
 
             shutil.copy(file_path, temp_file)
-            print(f"⚠️ Ruta compleja detectada. Archivo copiado a temporal: {temp_file}")
+            print(f"WARNING: Ruta compleja detectada. Archivo copiado a temporal: {temp_file}")
             file_to_open = temp_file
         else:
             file_to_open = file_path
 
         # Abrir con xlwings
         wb = app.books.open(str(file_to_open), update_links=False, read_only=read_only)
+        try:
+            app.calculate()
+        except Exception:
+            pass
         return wb
 
     @staticmethod
